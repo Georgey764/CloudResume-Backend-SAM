@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  george-cloud-resume
+
+  Sample SAM Template for george-cloud-resume serverless infrastructure
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,OPTIONS'"
+      AllowHeaders: "'content-type'"
+      AllowOrigin: "'*'"
+  Function:
+    Timeout: 60
+    MemorySize: 128
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+
+Resources:
+  CloudResumeDynamoDB:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - KeyType: HASH
+          AttributeName: variables
+      AttributeDefinitions:
+        - AttributeName: variables
+          AttributeType: S
+      TableName: george-cloud-resume-table
+      Tags:
+        - Key: String
+          Value: george-cloud-resume
+
+  CloudApiGateWay:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+
+  SetCounterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cloud-resume-set-counter
+      CodeUri: set_counter/
+      Handler: app.lambda_handler
+      Events:
+        SetCounterAPI:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: CloudApiGateWay
+            Path: /set_counter
+            Method: post
+    Connectors:
+      ConnectToDynamoDB:
+        Properties:
+          Destination:
+            Id: CloudResumeDynamoDB
+          Permissions:
+            - Write
+
+  GetCounterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cloud-resume-get-counter
+      CodeUri: get_counter/
+      Handler: app.lambda_handler
+      Events:
+        GetCounterAPI:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: CloudApiGateWay
+            Path: /get_counter
+            Method: get
+    Connectors:
+      ConnectToDynamoDB:
+        Properties:
+          Destination:
+            Id: CloudResumeDynamoDB
+          Permissions:
+            - Read
+# Outputs:
+#   SetCounterApi:
+#     Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+#     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
+#   SetCounterFunction:
+#     Description: "Set Counter Function ARN"
+#     Value: !GetAtt SetCounterFunction.Arn
+#   HelloWorldFunctionIamRole:
+#     Description: "Implicit IAM Role created for Hello World function"
+#     Value: !GetAtt HelloWorldFunctionRole.Arn
